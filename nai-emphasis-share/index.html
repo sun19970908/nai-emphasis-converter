@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="UguuD1dYxhl8427K1iElqg">
+<head data-page-node-id="CvkAsqBrJzBm0ju3JAnwzk">
+<meta charset="UTF-8" data-page-node-id="8b1QqzRQhhlvpggOBFC9Th">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="UbTPScELTwtYCpyHgnr1Bw">
+<title>NovelAI 强调语法转换器</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #e3e6ea;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent-soft: #eff4ff;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 20px 60px;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 16px;
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .col { flex: 1 1 380px; min-width: 0; }
+  label.sec {
+    display: block; font-size: 12px; font-weight: 600; letter-spacing: .04em;
+    color: var(--muted); text-transform: uppercase; margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%; min-height: 132px; resize: vertical; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: 8px; background: #fcfcfd;
+    font: 13px/1.7 var(--mono); color: var(--text); outline: none;
+  }
+  textarea:focus { border-color: var(--accent); background: #fff; }
+  textarea[readonly] { background: #f9fafb; }
+  .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 0; }
+  .btn {
+    border: 1px solid var(--border); background: #fff; color: var(--text);
+    padding: 7px 14px; border-radius: 7px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .btn:hover { border-color: #c9ced6; }
+  .btn.copied { color: #166534; border-color: #86efac; background: #f0fdf4; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .opts { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .opt {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; cursor: pointer; user-select: none;
+  }
+  .opt input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .opt .no {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%; flex: none;
+    background: #dbe4f7; color: var(--accent);
+    font: 700 11px/1 var(--mono); transition: background .12s, color .12s;
+  }
+  .opt.on .no { background: var(--accent); color: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  code { font-family: var(--mono); background: #f1f3f5; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap table { min-width: 460px; }
+  @media (max-width: 640px) {
+    body { padding: 16px 12px 40px; }
+    .col { flex-basis: 100%; }
+    textarea { font-size: 16px; min-height: 104px; -webkit-text-size-adjust: 100%; }
+    .btn { padding: 10px 16px; }
+    .opts { gap: 12px; }
+    .opt { padding: 6px 0; }
+    .toolbar .btn { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body data-page-node-id="MoxlWCQnn22cBVXms4kHPq">
+<div class="wrap" data-page-node-id="h3RyEXuVuvFI4vJ55yw0Fl">
+  <h1 data-page-node-id="urmONY9lhWle98ofzk9APn">NovelAI 强调语法转换器</h1>
+  <div class="sub" data-page-node-id="ozP27X6OQt5QFF8R3DOObL">
+    把 NovelAI 的 <code data-page-node-id="oLVdXHWX7RvC4tHAKcsG2a">::</code> 段落权重、<code data-page-node-id="5jIqQvhYwuVheWeLS4eV4t">{}</code> <code data-page-node-id="Y1hVensoHNoRdVlgGSuEtH">[]</code> 位置权重转成 ComfyUI 的
+    <code data-page-node-id="3qZPGRw9phDwf7wXDDxMAZ">(tag:weight)</code>。三个开关按编号顺序依次作用，可以任意搭配。
+  </div>
+
+  <div class="card" data-page-node-id="i11KmyvPLJ7JoUiyRJ8K9n">
+    <label class="sec" data-page-node-id="P6OyKh1AOKM5bu8JQKf1Mg">处理步骤（按编号顺序执行）</label>
+    <div class="opts" id="opts">
+      <label class="opt"><input type="checkbox" data-opt="convert" checked><span class="no">1</span>转换 NAI 语法 → <code>(tag:N)</code></label>
+      <label class="opt"><input type="checkbox" data-opt="flatten"><span class="no">2</span>权重全部归 1</label>
+      <label class="opt"><input type="checkbox" data-opt="neg1"><span class="no">3</span>Krea2 Prompt Weight节点：负面权重 ×(-1) 转 <code>(tag:-N)</code></label>
+    </div>
+    <div class="hint" style="margin-top: 10px;">
+      ① 解析 <code>::</code> <code>{}</code> <code>[]</code>，负权重自动分流到负面提示词 →
+      ② 剥掉所有权重壳，只留裸 tag →
+      ③ 负面串权重 ×(-1)（<code>(blurry:1.4)</code> → <code>(blurry:-1.4)</code>，裸 tag → <code>(tag:-1)</code>），正面不动。三个都不勾则原样输出。
+    </div>
+  </div>
+
+  <div class="card" data-page-node-id="bSPb4SQ5wtIsaX1UbBzDgp">
+    <div class="row" data-page-node-id="EbbjZDw9CqeenDUjB9lXLp">
+      <div class="col" data-page-node-id="HeYWTJjcgyAvjbEoLBKoKN">
+        <label class="sec" for="inPositive">输入 · 正面提示词</label>
+        <textarea id="inPositive" spellcheck="false" placeholder="masterpiece, 1girl, {detailed eyes}, [simple background], 1.3::blonde hair, -1.4::watermark"></textarea>
+      </div>
+      <div class="col" data-page-node-id="ORcdY4tn2GfiuH3g8gurOX">
+        <label class="sec" for="inNegative">输入 · 负面提示词</label>
+        <textarea id="inNegative" spellcheck="false" placeholder="1.3::bad hands, (worst quality:1.2)"></textarea>
+      </div>
+    </div>
+    <div class="toolbar" data-page-node-id="YwdJ0z3H4S4G8c2Zkg7XFe">
+      <button class="btn" id="clear">清空</button>
+      <button class="btn" id="sample">填入示例</button>
+      <span class="hint">输入时自动实时转换</span>
+    </div>
+  </div>
+
+  <div class="card" id="out" data-page-node-id="N4KN5zkWsKf1GPJhII1i8H">
+    <div class="row" data-page-node-id="1Hc0OCo9LplHXSoUEH2trO">
+      <div class="col">
+        <label class="sec" data-page-node-id="hgESjXmiYGeai9HoPWKkHO">输出 · 正面提示词 positive</label>
+        <textarea id="positive" readonly spellcheck="false" placeholder="转换结果"></textarea>
+      </div>
+      <div class="col" id="colNegative">
+        <label class="sec" data-page-node-id="cH6Sk5HZ9FsNZ5Mq2CypAw">输出 · 负面提示词 negative</label>
+        <textarea id="negative" readonly spellcheck="false" placeholder="转换结果"></textarea>
+      </div>
+    </div>
+    <div class="toolbar" style="margin: 14px 0 0;">
+      <button class="btn" data-copy="positive" data-page-node-id="zcAWmAomkUpCnDyOgEludm">复制正面</button>
+      <button class="btn" id="copyNegative" data-copy="negative" data-page-node-id="CjvK9uYk8iRDkf5iaym4iP">复制负面</button>
+      <span class="hint" id="outHint" data-page-node-id="hvJfxRl4qDeh0DFR1iw3OO">已含从正面分流出的负权重 tag，直接贴进 CLIPTextEncode 的 negative 输入</span>
+    </div>
+  </div>
+
+  <div class="card" data-page-node-id="IvjstmPa3pfXKHCYg3R7FG">
+    <label class="sec" data-page-node-id="MhbufrvZ3GLOTw2elwCmXC">语法速查</label>
+    <div class="table-wrap">
+    <table data-page-node-id="5IvagqWWiQ2OlMiHo7FtQB">
+      <tr data-page-node-id="cecGNCNfkDzKE7wkQDHuT0"><th data-page-node-id="rHZOJRXzOF4rIJEljtjTEm">输入</th><th data-page-node-id="cSvAegg3HJJVbB9HCPrrwq">含义</th><th data-page-node-id="BAQNanD6uNk9EWpgBtlqgw">输出</th></tr>
+      <tr data-page-node-id="LifYAJmpjFAqwydHe5FJ6D"><td data-page-node-id="31ojXmPoYdKBdjF1TAvme5"><code data-page-node-id="xaDFZruugJOk4JSHkBHYkY">1.3::tag</code></td><td data-page-node-id="NcR0kuMWZ4TXrzXlnMwvMl">段落权重</td><td data-page-node-id="JUItclflCZfviuPbLnoevA"><code data-page-node-id="A5G5Fxpfc8OAauLaQxAZ3Y">(tag:1.3)</code></td></tr>
+      <tr data-page-node-id="qCXznGgurEbk9KuX47Yeup"><td data-page-node-id="XdbaedKnfyo8pCMwA0qZYV"><code data-page-node-id="oHsm1Vr5JGcpTip44xszil">{tag}</code></td><td data-page-node-id="x0prBzvfOE9NJ9Q3fG7QE1">加强，每层 +0.05</td><td data-page-node-id="0ZfXJDCh7AjBaIgijzFtCZ"><code data-page-node-id="BEWoF6XZhXVpDZVCCBIjjT">(tag:1.05)</code></td></tr>
+      <tr data-page-node-id="6KCqeejNc2JAuATxMkQ3TX"><td data-page-node-id="wNZipl78jFeC1td7AtaEZQ"><code data-page-node-id="0w961bCgxGxO1nHH7kZqEs">[tag]</code></td><td data-page-node-id="0FPbi2XUpJHGF8cD4tRLMb">减弱，每层 −0.05</td><td data-page-node-id="wYwNEXI2iCWQkyCcmDk1fc"><code data-page-node-id="2WBFX68w1JO0GhzPuI730B">(tag:0.95)</code></td></tr>
+      <tr data-page-node-id="HgJdkibpJOgdeHY6FUDEqR"><td data-page-node-id="HNvgmk7H1baOjUFLoqTZAj"><code data-page-node-id="r9c6ZdEQxajQF0CFBCS1Gd">-1.4::tag</code></td><td data-page-node-id="9A3rTlkQLydD5GsJx31DPE">负权重（NAI 写法）</td><td data-page-node-id="eDlmVFDXOcJLE03vEU7D38">移出正面，负面槽位得 <code data-page-node-id="VOHFx0INUfekx3xPVA3Mih">(tag:1.4)</code></td></tr>
+      <tr><td><code>(tag:-1)</code></td><td>负权重（A1111 写法）</td><td>同样按方向分流，负面槽位得 <code>tag</code></td></tr>
+      <tr data-page-node-id="R32EG0trIVjyNBF1HVaNOj"><td data-page-node-id="okvE7V1ayDdBg71ZQy22tc">权重恰为 1</td><td data-page-node-id="TFATOIRKemHqDlzkTTBmaZ">无强调</td><td data-page-node-id="lhlknijeZRm68meMLDIQDw">不加括号，原样输出</td></tr>
+      <tr><td><code>(tag:1.3)</code></td><td>步骤 ② 权重归 1</td><td><code>tag</code>，权重壳剥掉</td></tr>
+      <tr><td>负面 tag</td><td>步骤 ③ Krea2 Prompt Weight节点</td><td><code>(tag:-N)</code>，按原强度取反(<code>(blurry:1.4)</code>→<code>(blurry:-1.4)</code>)；正面 tag 不变</td></tr>
+    </table>
+    </div>
+  </div>
+</div>
+
+<script src="nai-emphasis.flat.js"></script>
+<script>
+(function () {
+  var api = window.NAIEmphasis;
+  var $ = function (id) { return document.getElementById(id); };
+  var opts = { convert: true, flatten: false, neg1: false };
+
+  var HINTS = {
+    raw: '① 未勾选：两条串原样透传，不做任何转换',
+    normal: '已含从正面分流出的负权重 tag，直接贴进 CLIPTextEncode 的 negative 输入',
+    neg1: 'Krea2 Prompt Weight节点没有 negative 槽位：负面已并入正面，复制正面即可',
+  };
+
+  function convert() {
+    var pos = $('inPositive').value;
+    var neg = $('inNegative').value;
+
+    // ① 转换 NAI 语法 + 负权重分流（不勾则两条串原样进下一步）
+    if (opts.convert) {
+      var r = api.convertPromptPair({ positive: pos, negative: neg });
+      pos = r.positive;
+      neg = r.negative;
+    }
+
+    // ② 权重全改 1：两条串各剥一次壳
+    if (opts.flatten) {
+      pos = api.stripAllWeights(pos);
+      neg = api.stripAllWeights(neg);
+    }
+
+    // ③ Krea2 Prompt Weight节点：负面串权重 ×(-1) 后并入正面
+    if (opts.neg1) {
+      // toNegativeOneTags 只吃**已归一**的串：勾了 ① 时 neg 已经是 (tag:N) 形态；
+      // 没勾 ① 则由这里补一次转换（与 CLI 的 -n 一致），否则 :: / {} / [] 不会被展开。
+      var negNormalized = opts.convert ? neg : api.convertNovelEmphasisToComfy(neg);
+      pos = [pos, api.toNegativeOneTags(negNormalized)].filter(Boolean).join(', ');
+      neg = '';
+    }
+
+    $('positive').value = pos;
+    $('negative').value = neg;
+    // 勾 ③ 后负面已并入正面，负面列没有内容可看、也不该复制
+    $('colNegative').style.display = opts.neg1 ? 'none' : '';
+    $('copyNegative').style.display = opts.neg1 ? 'none' : '';
+    $('outHint').textContent = opts.neg1 ? HINTS.neg1 : (opts.convert ? HINTS.normal : HINTS.raw);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-opt]'), function (box) {
+    box.parentNode.classList.toggle('on', box.checked);
+    box.addEventListener('change', function () {
+      opts[box.dataset.opt] = box.checked;
+      box.parentNode.classList.toggle('on', box.checked);
+      convert();
+    });
+  });
+
+  $('inPositive').addEventListener('input', convert);
+  $('inNegative').addEventListener('input', convert);
+
+  $('clear').addEventListener('click', function () {
+    ['inPositive', 'inNegative', 'positive', 'negative'].forEach(function (id) { $(id).value = ''; });
+    $('inPositive').focus();
+  });
+
+  $('sample').addEventListener('click', function () {
+    $('inPositive').value = 'masterpiece, 1girl, solo, {detailed eyes}, [simple background], 1.3::blonde hair, -1.4::watermark';
+    $('inNegative').value = '1.3::bad hands, lowres';
+    convert();
+  });
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-copy]');
+    if (!btn) return;
+    var el = $(btn.dataset.copy);
+    var text = el.value;
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = '已复制';
+      btn.classList.add('copied');
+      setTimeout(function () { btn.textContent = old; btn.classList.remove('copied'); }, 1200);
+    };
+    var onFail = function () {
+      var old = btn.textContent;
+      btn.textContent = '复制失败，长按选择';
+      setTimeout(function () { btn.textContent = old; }, 2000);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(el, done, onFail); });
+    } else {
+      fallback(el, done, onFail);
+    }
+  });
+
+  // 兜底复制：iOS Safari 上 select() 不生效，得先摘掉 readonly 再 setSelectionRange
+  function fallback(el, done, onFail) {
+    var ok = false;
+    el.removeAttribute('readonly');
+    try {
+      el.focus();
+      el.setSelectionRange(0, el.value.length);
+      ok = document.execCommand('copy');
+    } catch (_) {}
+    el.setAttribute('readonly', 'readonly');
+    el.blur();
+    if (ok) done();
+    else onFail();
+  }
+
+  if (!api) {
+    document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+      '<div class="card" style="border-color:#fca5a5;color:#b91c1c">未加载到 nai-emphasis.flat.js，请确认它和本文件在同一目录。</div>');
+    return;
+  }
+
+  $('inPositive').value = 'masterpiece, 1girl, solo, {detailed eyes}, [simple background], 1.3::blonde hair, -1.4::watermark';
+  $('inNegative').value = '1.3::bad hands, lowres';
+  convert();
+})();
+</script>
+</body>
+</html>
