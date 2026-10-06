@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """NAI 强调语法转换 · ComfyUI 节点。
 
-两个布尔开关与网页版（nai-emphasis-share/index.html）的复选框对应，按编号顺序依次作用：
+开关与处理顺序（编号即执行顺序）：
+  ⓪ 回车补逗号（默认开）      行尾补英文逗号      _ensure_comma_before_newlines，正负两侧，转换之前
   ①（始终执行）NAI 语法转换      convert_prompt_pair   ::/{} /[] → (tag:N)，负权重分流到负面
   ② flatten        权重全部归 1    strip_all_weights     剥掉所有权重壳，只留裸 tag
   ③「适配 Krea2 Prompt Weight」  一键两件事（负面串权重 ×(-1) + 并进正面输出）：
@@ -19,6 +20,26 @@ from .nai_emphasis import (
     to_negative_one_tags,
     _join_non_empty,
 )
+
+
+def _ensure_comma_before_newlines(text):
+    """给每个换行前的行尾补一个英文逗号（在所有转换逻辑之前执行）。
+
+    规则：该行 rstrip 后非空、且不以英文逗号结尾 → 行尾补一个 ","。
+    空行不补；已有英文逗号不补；全角逗号/顿号不算（照样补）。
+    兜住编辑器「回车吞逗号」造成的两行 tag 粘连——普通 tag 合并只是
+    编码器里换行当空格的小差异，但会把 (tag:-1) 这类 A1111 负权重壳
+    连进上一行、分流失效。
+    """
+    if not text or "\n" not in text:
+        return text
+    lines = text.split("\n")
+    for i in range(len(lines) - 1):  # 最后一行后面没有换行，不处理
+        stripped = lines[i].rstrip()
+        if not stripped or stripped.endswith(","):
+            continue
+        lines[i] = stripped + ","
+    return "\n".join(lines)
 
 
 class NaiEmphasisConverter:
@@ -50,6 +71,12 @@ class NaiEmphasisConverter:
                     "label_off": "关闭",
                     "tooltip": "③ 一键适配 Krea2 Prompt Weight 工作流：负面串权重 ×(-1)（(tag:1.4)→(tag:-1.4)，裸 tag→(tag:-1)），并把结果并进 positive 输出。positive 输出直接接 Krea2PromptWeight 节点即可。",
                 }),
+                "回车补逗号": ("BOOLEAN", {
+                    "default": True,
+                    "label_on": "开启",
+                    "label_off": "关闭",
+                    "tooltip": "在所有转换逻辑之前执行：行尾没有英文逗号的行，在换行前自动补一个英文逗号，兜住编辑器回车吞逗号造成的 tag 粘连。空行不补；行尾已有英文逗号不补；全角逗号/顿号不算。",
+                }),
             },
         }
 
@@ -61,9 +88,15 @@ class NaiEmphasisConverter:
     DESCRIPTION = "NovelAI V4/V4.5 强调语法（:: / {} / [] / 负权重）→ ComfyUI (tag:N) 语法，负权重自动分流到负面槽。与 nai-emphasis-share 网页版同一套转换逻辑。"
 
     def convert(self, positive, negative, flatten, **kwargs):
-        # 「适配 Krea2 Prompt Weight」名字含空格/中文，Python 形参写不出，
-        # 用 **kwargs 接：调用时按输入名精确取，缺省 False。
+        # 「适配 Krea2 Prompt Weight」「回车补逗号」名字含空格/中文，Python 形参
+        # 写不出，用 **kwargs 接：调用时按输入名精确取。
         krea2_mode = bool(kwargs.get("适配 Krea2 Prompt Weight", False))
+        auto_comma = bool(kwargs.get("回车补逗号", True))
+
+        if auto_comma:
+            # ⓪ 所有转换逻辑之前：给回车前的行尾补英文逗号（正负两侧都做）
+            positive = _ensure_comma_before_newlines(positive)
+            negative = _ensure_comma_before_newlines(negative)
 
         positive_out, negative_out = convert_prompt_pair(positive=positive, negative=negative)
 

@@ -36,8 +36,9 @@ git clone https://github.com/sun19970908/nai-emphasis-converter.git
 
 | 开关 | 默认 | 作用 |
 |---|---|---|
-| `flatten` | 关 | 权重全部归 1：剥掉所有 `(tag:N)` 外壳，只留裸 tag |
-| `适配 Krea2 Prompt Weight` | 关 | 负面串权重 ×(-1)——`(tag:1.4)`→`(tag:-1.4)`，裸 tag→`(tag:-1)`——并把结果并进 positive 输出 |
+| `回车补逗号` | 开 | ⓪ 所有转换之前：行尾没有英文逗号的行，在换行前自动补一个英文逗号（兜编辑器回车吞逗号造成的 tag 粘连；空行不补，已有英文逗号不补） |
+| `flatten` | 关 | ② 权重全部归 1：剥掉所有 `(tag:N)` 外壳，只留裸 tag |
+| `适配 Krea2 Prompt Weight` | 关 | ③ 负面串权重 ×(-1)——`(tag:1.4)`→`(tag:-1.4)`，裸 tag→`(tag:-1)`——并把结果并进 positive 输出 |
 
 **输出**：`positive` / `negative` 两条 STRING。
 
