@@ -285,7 +285,13 @@ def extract_weighted_tokens(content):
                     final_factor = exp_weight + delta
                 else:
                     final_factor = exp_weight
-                tokens.append((exp_tag, final_factor, True))
+                if "," in exp_tag:
+                    for sub in exp_tag.split(","):
+                        sub_tag = _clean_tag(sub)
+                        if sub_tag:
+                            tokens.append((sub_tag, final_factor, True))
+                else:
+                    tokens.append((exp_tag, final_factor, True))
                 i = end_idx + 1
                 continue
             else:
@@ -303,7 +309,7 @@ def extract_weighted_tokens(content):
             i += 1
             continue
 
-        if ch == "," and depth == 0:
+        if ch == ",":
             flush_buffer()
             i += 1
             continue

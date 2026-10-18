@@ -26,10 +26,11 @@ def run_tests():
         # 2. 与普通裸 tag 混排
         ("masterpiece, (1girl), ((blonde hair))", "masterpiece, (1girl:1.1), (blonde hair:1.2)"),
 
-        # 3. 括号内多个 tag（保持整体/逗号）
-        ("(a, b)", "(a, b:1.1)"),
-        ("((a, b))", "(a, b:1.2)"),
+        # 3. 括号内多个 tag（按逗号拆分）
+        ("(a, b)", "(a:1.1), (b:1.1)"),
+        ("((a, b))", "(a:1.2), (b:1.2)"),
         ("(a, (b))", "(a:1.1), (b:1.2)"),
+        ("{{{{{tribal tattoo,white bodypainting}}}}}", "(tribal tattoo:1.25), (white bodypainting:1.25)"),
 
         # 4. 与花括号 {}、方括号 [] 混合
         ("{tag}", "(tag:1.05)"),

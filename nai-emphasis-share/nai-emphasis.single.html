@@ -467,11 +467,24 @@ function extractWeightedTokens(content) {
                 flushBuffer();
                 const delta = WEIGHT_STEP * multiplyCount - WEIGHT_STEP * divideCount + PAREN_WEIGHT_STEP * parenCount;
                 const finalFactor = explicit.weight >= 0 ? explicit.weight + delta : explicit.weight;
-                tokens.push({
-                    tag: explicit.tag,
-                    braceFactor: finalFactor,
-                    isExplicit: true,
-                });
+                if (explicit.tag.includes(',')) {
+                    for (const sub of explicit.tag.split(',')) {
+                        const subTag = cleanTag(sub);
+                        if (subTag) {
+                            tokens.push({
+                                tag: subTag,
+                                braceFactor: finalFactor,
+                                isExplicit: true,
+                            });
+                        }
+                    }
+                } else {
+                    tokens.push({
+                        tag: explicit.tag,
+                        braceFactor: finalFactor,
+                        isExplicit: true,
+                    });
+                }
                 i = explicit.end + 1;
                 continue;
             } else {
@@ -491,7 +504,7 @@ function extractWeightedTokens(content) {
             continue;
         }
 
-        if (ch === ',' && depth === 0) {
+        if (ch === ',') {
             flushBuffer();
             i++;
             continue;
