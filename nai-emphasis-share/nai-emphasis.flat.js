@@ -43,6 +43,8 @@
  */
 
 const WEIGHT_STEP = 0.05;
+const PAREN_WEIGHT_STEP = 0.10;
+const WEIGHT_RE = /^-?\d+(?:\.\d+)?$/;
 
 function isAsciiDigit(ch) {
     return ch >= '0' && ch <= '9';
@@ -172,64 +174,172 @@ function parseNovelSections(text) {
     return sections;
 }
 
+function findMatchingParen(text, start) {
+    const n = text.length;
+    let depth = 0;
+    let i = start;
+    while (i < n) {
+        const ch = text[i];
+        if (ch === '\\') {
+            i += 2;
+            continue;
+        }
+        if (ch === '(' || ch === '{' || ch === '[') {
+            depth++;
+        } else if (ch === ')' || ch === '}' || ch === ']') {
+            depth--;
+            if (depth === 0) return i;
+        }
+        i++;
+    }
+    return -1;
+}
+
+function checkExplicitWeightParen(text, start) {
+    const end = findMatchingParen(text, start);
+    if (end === -1) return null;
+    const inner = text.slice(start + 1, end);
+    const n = inner.length;
+    let depth = 0;
+    let colonIdx = -1;
+    let i = 0;
+    while (i < n) {
+        const ch = inner[i];
+        if (ch === '\\') {
+            i += 2;
+            continue;
+        }
+        if (ch === '(' || ch === '{' || ch === '[') {
+            depth++;
+        } else if (ch === ')' || ch === '}' || ch === ']') {
+            if (depth > 0) depth--;
+        } else if (ch === ':' && depth === 0) {
+            colonIdx = i;
+        }
+        i++;
+    }
+    if (colonIdx === -1) return null;
+    const tagPart = cleanTag(inner.slice(0, colonIdx));
+    const weightPart = inner.slice(colonIdx + 1).trim();
+    if (!tagPart || !WEIGHT_RE.test(weightPart)) return null;
+    return {
+        tag: tagPart,
+        weight: parseFloat(weightPart),
+        end,
+    };
+}
+
 /**
- * 第二层：处理段落内 brace/bracket 位置权重。
- * 输出：[{ tag, braceFactor }]
+ * 第二层：处理段落内 brace/bracket/paren 位置权重。
+ * 输出：[{ tag, braceFactor, isExplicit }]
  */
 function extractWeightedTokens(content) {
     const tokens = [];
     let buffer = '';
     let multiplyCount = 0;
     let divideCount = 0;
+    let parenCount = 0;
     let depth = 0;
 
     function flushBuffer() {
         const t = cleanTag(buffer);
-        if (!t) {
-            buffer = '';
-            return;
-        }
+        buffer = '';
+        if (!t) return;
+        const braceFactor = 1 + WEIGHT_STEP * multiplyCount - WEIGHT_STEP * divideCount + PAREN_WEIGHT_STEP * parenCount;
         tokens.push({
             tag: t,
-            braceFactor: computeBraceFactor(multiplyCount, divideCount),
+            braceFactor,
+            isExplicit: false,
         });
-        buffer = '';
     }
 
-    for (let i = 0; i < content.length; i++) {
+    const n = content.length;
+    let i = 0;
+    while (i < n) {
         const ch = content[i];
+
+        if (ch === '\\') {
+            buffer += ch;
+            if (i + 1 < n) {
+                buffer += content[i + 1];
+                i += 2;
+            } else {
+                i++;
+            }
+            continue;
+        }
+
         if (ch === '{') {
             multiplyCount++;
             depth++;
             flushBuffer();
+            i++;
             continue;
         }
         if (ch === '}') {
             flushBuffer();
             if (depth > 0) depth--;
             multiplyCount = Math.max(0, multiplyCount - 1);
+            i++;
             continue;
         }
+
         if (ch === '[') {
             divideCount++;
             depth++;
             flushBuffer();
+            i++;
             continue;
         }
         if (ch === ']') {
             flushBuffer();
             if (depth > 0) depth--;
             divideCount = Math.max(0, divideCount - 1);
+            i++;
             continue;
         }
+
+        if (ch === '(') {
+            const explicit = checkExplicitWeightParen(content, i);
+            if (explicit !== null) {
+                flushBuffer();
+                const delta = WEIGHT_STEP * multiplyCount - WEIGHT_STEP * divideCount + PAREN_WEIGHT_STEP * parenCount;
+                const finalFactor = explicit.weight >= 0 ? explicit.weight + delta : explicit.weight;
+                tokens.push({
+                    tag: explicit.tag,
+                    braceFactor: finalFactor,
+                    isExplicit: true,
+                });
+                i = explicit.end + 1;
+                continue;
+            } else {
+                flushBuffer();
+                parenCount++;
+                depth++;
+                i++;
+                continue;
+            }
+        }
+
+        if (ch === ')') {
+            flushBuffer();
+            if (depth > 0) depth--;
+            parenCount = Math.max(0, parenCount - 1);
+            i++;
+            continue;
+        }
+
         if (ch === ',' && depth === 0) {
             flushBuffer();
+            i++;
             continue;
         }
-        buffer += ch;
-    }
-    flushBuffer();
 
+        buffer += ch;
+        i++;
+    }
+
+    flushBuffer();
     return tokens;
 }
 
@@ -253,14 +363,14 @@ function convertNovelEmphasisToComfy(text) {
     const parts = [];
     for (const section of sections) {
         const tokens = extractWeightedTokens(section.content);
-        for (const { tag, braceFactor } of tokens) {
+        for (const { tag, braceFactor, isExplicit } of tokens) {
             const weight = section.weight * braceFactor;
             if (weight < 0) {
                 // 负权重就地保留成 (tag:-N)，等分流那一步再摘负号。
                 parts.push(`(${tag}:-${formatWeight(Math.abs(weight))})`);
                 continue;
             }
-            if (weight === 1 && !section.isExplicit) {
+            if (weight === 1 && !(section.isExplicit || isExplicit)) {
                 parts.push(tag);
             } else {
                 parts.push(`(${tag}:${formatWeight(weight)})`);
