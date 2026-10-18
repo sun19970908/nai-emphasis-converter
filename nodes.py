@@ -51,7 +51,7 @@ class NaiEmphasisConverter:
                     "multiline": True,
                     "default": "",
                     "placeholder": "NAI 语法正面提示词，如：masterpiece, 1girl, {detailed eyes}, 1.3::blonde hair, -1.4::watermark",
-                    "tooltip": "NovelAI V4/V4.5 正面提示词。支持 1.3::段落、{加强}、[减弱]、-1.4::负权重、(tag:-1)。",
+                    "tooltip": "NovelAI V4/V4.5 正面提示词。支持 1.3::段落、{加强}、[减弱]、(强调)、-1.4::负权重、(tag:-1)。",
                 }),
                 "negative": ("STRING", {
                     "multiline": True,
@@ -85,7 +85,7 @@ class NaiEmphasisConverter:
     OUTPUT_TOOLTIPS = ("转换后的正面提示词（勾了「适配 Krea2 Prompt Weight」时已含并入的负权重）", "转换后的负面提示词（勾了「适配 Krea2 Prompt Weight」时已整体 ×(-1)，照常输出备用）")
     FUNCTION = "convert"
     CATEGORY = "prompt"
-    DESCRIPTION = "NovelAI V4/V4.5 强调语法（:: / {} / [] / 负权重）→ ComfyUI (tag:N) 语法，负权重自动分流到负面槽。与 nai-emphasis-share 网页版同一套转换逻辑。"
+    DESCRIPTION = "NovelAI V4/V4.5 强调语法（:: / {} / [] / () / 负权重）→ ComfyUI (tag:N) 语法，负权重自动分流到负面槽。与 nai-emphasis-share 网页版同一套转换逻辑。"
 
     def convert(self, positive, negative, flatten, **kwargs):
         # 「适配 Krea2 Prompt Weight」「回车补逗号」名字含空格/中文，Python 形参

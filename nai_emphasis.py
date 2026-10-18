@@ -29,7 +29,9 @@ import math
 import re
 
 WEIGHT_STEP = 0.05
+PAREN_WEIGHT_STEP = 0.10
 
+_WEIGHT_RE = re.compile(r"\A-?\d+(?:\.\d+)?\Z", re.A)
 _ASCII_DIGITS = frozenset("0123456789")
 
 # 「自带方向的负权重壳」：`(tag:-N)`，N 为正数。组1 tag，组2 权重绝对值。
@@ -147,12 +149,80 @@ def parse_novel_sections(text):
     return sections
 
 
+def _find_matching_paren(text, start):
+    """从 start（必须是 '('）开始，找到匹配的 ')' 索引。跳过转义字符。
+    若未闭合返回 -1。
+    """
+    n = len(text)
+    depth = 0
+    i = start
+    while i < n:
+        ch = text[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch in "({[":
+            depth += 1
+        elif ch in ")}]":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
+
+
+def _check_explicit_weight_paren(text, start):
+    """检查以 start 处的 '(' 开头的括号块是否为显式权重 (tag:weight)。
+
+    若是，返回 (tag_part, float(weight_part), end_index)；
+    若不是（如普通强调括号 (tag) 或带有非数字冒号），返回 None。
+    """
+    end = _find_matching_paren(text, start)
+    if end == -1:
+        return None
+    inner = text[start + 1:end]
+    n = len(inner)
+    depth = 0
+    colon_idx = -1
+    i = 0
+    while i < n:
+        ch = inner[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch in "({[":
+            depth += 1
+        elif ch in ")}]":
+            if depth > 0:
+                depth -= 1
+        elif ch == ":" and depth == 0:
+            colon_idx = i
+        i += 1
+    if colon_idx == -1:
+        return None
+    tag_part = _clean_tag(inner[:colon_idx])
+    weight_part = inner[colon_idx + 1:].strip()
+    if not tag_part or not _WEIGHT_RE.match(weight_part):
+        return None
+    return tag_part, float(weight_part), end
+
+
 def extract_weighted_tokens(content):
-    """第二层：处理段落内 brace/bracket 位置权重。输出 [(tag, brace_factor)]。"""
+    r"""第二层：处理段落内 brace/bracket/paren 位置权重。
+
+    输出 [(tag, brace_factor, is_explicit)]：
+      - 花括号 `{}`：每层 +0.05
+      - 方括号 `[]`：每层 -0.05
+      - 圆括号 `()`：
+          - 显式权重 `(tag:N)`：继承自身显式权重 N 及外层修饰
+          - 普通强调 `(tag)`：每层 +0.10，嵌套再 +0.10
+      - 转义括号 `\(` `\)`：保持字面值，不作为语法括号解析
+    """
     tokens = []
     buffer = []
     multiply_count = 0
     divide_count = 0
+    paren_count = 0
     depth = 0
 
     def flush_buffer():
@@ -160,38 +230,88 @@ def extract_weighted_tokens(content):
         del buffer[:]
         if not tag:
             return
-        brace_factor = 1 + WEIGHT_STEP * multiply_count - WEIGHT_STEP * divide_count
-        tokens.append((tag, brace_factor))
+        brace_factor = 1 + WEIGHT_STEP * multiply_count - WEIGHT_STEP * divide_count + PAREN_WEIGHT_STEP * paren_count
+        tokens.append((tag, brace_factor, False))
 
-    for ch in content:
+    n = len(content)
+    i = 0
+    while i < n:
+        ch = content[i]
+
+        if ch == "\\":
+            buffer.append(ch)
+            if i + 1 < n:
+                buffer.append(content[i + 1])
+                i += 2
+            else:
+                i += 1
+            continue
+
         if ch == "{":
             multiply_count += 1
             depth += 1
             flush_buffer()
+            i += 1
             continue
         if ch == "}":
             flush_buffer()
             if depth > 0:
                 depth -= 1
             multiply_count = max(0, multiply_count - 1)
+            i += 1
             continue
+
         if ch == "[":
             divide_count += 1
             depth += 1
             flush_buffer()
+            i += 1
             continue
         if ch == "]":
             flush_buffer()
             if depth > 0:
                 depth -= 1
             divide_count = max(0, divide_count - 1)
+            i += 1
             continue
+
+        if ch == "(":
+            explicit = _check_explicit_weight_paren(content, i)
+            if explicit is not None:
+                flush_buffer()
+                exp_tag, exp_weight, end_idx = explicit
+                delta = WEIGHT_STEP * multiply_count - WEIGHT_STEP * divide_count + PAREN_WEIGHT_STEP * paren_count
+                if exp_weight >= 0:
+                    final_factor = exp_weight + delta
+                else:
+                    final_factor = exp_weight
+                tokens.append((exp_tag, final_factor, True))
+                i = end_idx + 1
+                continue
+            else:
+                flush_buffer()
+                paren_count += 1
+                depth += 1
+                i += 1
+                continue
+
+        if ch == ")":
+            flush_buffer()
+            if depth > 0:
+                depth -= 1
+            paren_count = max(0, paren_count - 1)
+            i += 1
+            continue
+
         if ch == "," and depth == 0:
             flush_buffer()
+            i += 1
             continue
-        buffer.append(ch)
-    flush_buffer()
 
+        buffer.append(ch)
+        i += 1
+
+    flush_buffer()
     return tokens
 
 
@@ -205,12 +325,12 @@ def convert_novel_emphasis_to_comfy(text):
 
     parts = []
     for section in parse_novel_sections(text):
-        for tag, brace_factor in extract_weighted_tokens(section["content"]):
+        for tag, brace_factor, is_explicit in extract_weighted_tokens(section["content"]):
             weight = section["weight"] * brace_factor
             if weight < 0:
                 parts.append(f"({tag}:-{_format_weight(abs(weight))})")
                 continue
-            if weight == 1 and not section["is_explicit"]:
+            if weight == 1 and not (section["is_explicit"] or is_explicit):
                 parts.append(tag)
             else:
                 parts.append(f"({tag}:{_format_weight(weight)})")
