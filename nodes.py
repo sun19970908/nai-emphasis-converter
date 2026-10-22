@@ -20,6 +20,7 @@ from .nai_emphasis import (
     to_negative_one_tags,
     _join_non_empty,
 )
+from .prompt_anchor import WeiLinPromptAnchor
 
 
 def _ensure_comma_before_newlines(text):
@@ -116,8 +117,12 @@ class NaiEmphasisConverter:
 
 NODE_CLASS_MAPPINGS = {
     "NaiEmphasisConverter": NaiEmphasisConverter,
+    "WeiLinComfyUIPromptAllInOneGreat": WeiLinPromptAnchor,
+    "WeiLinComfyUIPromptAllInOneNeg": WeiLinPromptAnchor,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "NaiEmphasisConverter": "NAI 强调语法转换（NAI Emphasis Converter）",
+    "WeiLinComfyUIPromptAllInOneGreat": "正面提示词锚点（WeiLin 兼容）",
+    "WeiLinComfyUIPromptAllInOneNeg": "负面提示词锚点（WeiLin 兼容）",
 }
